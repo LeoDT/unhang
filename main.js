@@ -17,6 +17,8 @@ var word, word_limit, word_count = 0, guess_limit, guess_count = 0, dict;
 function Dict(){
     var str = '',
     build_reg = function(s){
+        // Reg like this ^[^e][^e]e[^e]$
+
         var letters = s.match(/[^\*]/ig).join('');
 
         return new RegExp('^' + s.replace(/\*/ig, '[^' + letters + ']') + '$', 'igm');
@@ -39,6 +41,7 @@ function Dict(){
         });
 
         _.each(letter_freq, function(c, l){
+            // get the max count letter which not guessed before
             if(c >= count && _.include(allowed, l.toUpperCase())){
                 letter = l;
                 count = c;
@@ -154,6 +157,7 @@ function guess_a_word(letters, callback){
         letter_emitter.on('guess_one', function(){
             var next_letter;
             if(word.search(/[^\*]/ig) != -1){
+                // there is a right letter in the word
                 next_letter = dict.get_a_letter(word, letters);
                 if(!next_letter){
                     next_letter = letters.pop()
