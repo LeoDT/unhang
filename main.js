@@ -4,14 +4,61 @@
 
 var request = require('request'),
     _ = require('underscore'),
-    events = require('events');
+    events = require('events'),
+    fs = require('fs');
 
 var user_id = 'leojoy710@gmail.com',
     secret;
 
-var letter_freq = 'ETAONRISHDLFCMUGYPWBVKJXQZ'.split('').reverse();
+var letters = 'ETAONRISHDLFCMUGYPWBVKJXQZ'.split('').reverse();
 
-var word, word_limit, word_count = 0, guess_limit, guess_count = 0;
+var word, word_limit, word_count = 0, guess_limit, guess_count = 0, dict;
+
+function Dict(){
+    var str = '',
+    build_reg = function(s){
+        var letters = s.match(/[^\*]/ig).join('');
+
+        return new RegExp('^' + s.replace(/\*/ig, '[^' + letters + ']') + '$', 'igm');
+    };
+    this.get_a_letter = function(s, allowed){
+        var r = build_reg(s),
+            words = str.match(r),
+            letter_freq = {},
+            letter, count = 0;
+
+        _.each(words, function(w){
+            _.each(w.split(''), function(l){
+                if(letter_freq[l]){
+                    letter_freq[l] += 1;
+                }
+                else{
+                    letter_freq[l] = 1;
+                }
+            });
+        });
+
+        _.each(letter_freq, function(c, l){
+            if(c >= count && _.include(allowed, l.toUpperCase())){
+                letter = l;
+                count = c;
+            }
+        });
+
+        console.log('get letter ' + letter + ' and count ' + count);
+        return letter ? letter.toUpperCase() : undefined;
+    };
+
+    this.init = function(callback){
+        fs.readFile('./words', 'utf-8', function(err, data){
+            if(err) throw err;
+
+            str = data;
+
+            callback();
+        });
+    };
+}
 
 function post(body, options){
     if(options.auth){
@@ -23,8 +70,7 @@ function post(body, options){
     request.post({
         url: 'http://strikingly-interview-test.herokuapp.com/guess/process',
         json: true,
-        body: body,
-        proxy: 'http://127.0.0.1:8888'
+        body: body
     }, function(error, response, body){
         if(body && body.status == '200' && options.callback){
             if(body.message){
@@ -90,13 +136,39 @@ function guess(letter, callback){
     });
 }
 
+function finish(){
+    console.log('guess finished');
+    post({
+        action: 'submitTestResults'
+    }, {
+        auth: true,
+        callback: function(json){
+            console.log(json);
+        }
+    });
+}
+
 function guess_a_word(letters, callback){
     next_word(function(){
         var letter_emitter = new events.EventEmitter();
         letter_emitter.on('guess_one', function(){
+            var next_letter;
+            if(word.search(/[^\*]/ig) != -1){
+                next_letter = dict.get_a_letter(word, letters);
+                if(!next_letter){
+                    next_letter = letters.pop()
+                }
+                else{
+                    letters = _.without(letters, next_letter);
+                }
+            }
+            else{
+                next_letter = letters.pop();
+            }
+
             if(guess_count < guess_limit && word.indexOf('*') != -1){
                 console.log('guess ' + guess_count);
-                guess(letters.pop(), function(){
+                guess(next_letter, function(){
                     letter_emitter.emit('guess_one');
                 });
             }
@@ -115,11 +187,17 @@ start_new_game(function(){
     word_emitter.on('guess_one', function(){
         if(word_count < word_limit){
             console.log('guess word number ' + word_count);
-            guess_a_word(_.clone(letter_freq), function(){
+            guess_a_word(_.clone(letters), function(){
                 word_emitter.emit('guess_one');
             });
         }
+        else{
+            finish();
+        }
     });
 
-    word_emitter.emit('guess_one');
+    dict = new Dict();
+    dict.init(function(){
+        word_emitter.emit('guess_one');
+    });
 });
