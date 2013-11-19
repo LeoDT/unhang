@@ -16,15 +16,17 @@ var word, word_limit, word_count = 0, guess_limit, guess_count = 0, dict;
 
 function Dict(){
     var str = '',
-    build_reg = function(s){
-        // Reg like this ^[^e][^e]e[^e]$
+    build_reg = function(s, allowed){
+        // Reg like this ^[^et][^et]e[^et]$
 
-        var letters = s.match(/[^\*]/ig).join('');
+        var right_letters = s.match(/[^\*]/ig),
+            guessed = _.difference(letters, allowed),
+            all = _.union(right_letters, guessed).join('');
 
-        return new RegExp('^' + s.replace(/\*/ig, '[^' + letters + ']') + '$', 'igm');
+        return new RegExp('^' + s.replace(/\*/ig, '[^' + all + ']') + '$', 'igm');
     };
     this.get_a_letter = function(s, allowed){
-        var r = build_reg(s),
+        var r = build_reg(s, allowed),
             words = str.match(r),
             letter_freq = {},
             letter, count = 0;
