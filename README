@@ -1,5 +1,6 @@
-# Before run
+# To run
 npm install request underscore
+node main.js
 
 # Introduce
 Two method to guess next letter:
